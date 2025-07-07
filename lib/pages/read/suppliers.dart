@@ -1,9 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uts_flutter/pages/add/add_supplier.dart';
 
-class SuppliersPage extends StatelessWidget {
-  final DocumentReference storeRef = FirebaseFirestore.instance.doc('stores/2');
+class SuppliersPage extends StatefulWidget {
+  const SuppliersPage({super.key});
+
+  @override
+  State<SuppliersPage> createState() => _SuppliersPageState();
+}
+
+class _SuppliersPageState extends State<SuppliersPage> {
+  DocumentReference? storeRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStoreRef();
+  }
+
+  Future<void> _loadStoreRef() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storeValue = prefs.getString('store_ref');
+
+    if (storeValue != null) {
+      final fullPath =
+          storeValue.startsWith('stores/') ? storeValue : 'stores/$storeValue';
+      setState(() {
+        storeRef = FirebaseFirestore.instance.doc(fullPath);
+      });
+    } else {
+      print("store_ref tidak ditemukan di SharedPreferences.");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,79 +52,86 @@ class SuppliersPage extends StatelessWidget {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('suppliers')
-            .where('store_ref', isEqualTo: storeRef)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+      body: storeRef == null
+          ? Center(child: CircularProgressIndicator())
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('suppliers')
+                  .where('store_ref', isEqualTo: storeRef)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('Tidak ada supplier untuk stores/2'));
-          }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('Tidak ada supplier untuk toko ini'));
+                }
 
-          final products = snapshot.data!.docs;
+                final suppliers = snapshot.data!.docs;
 
-          return ListView.builder(
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final productDoc = products[index];
-              final data = productDoc.data() as Map<String, dynamic>;
+                return ListView.builder(
+                  itemCount: suppliers.length,
+                  itemBuilder: (context, index) {
+                    final supplierDoc = suppliers[index];
+                    final data = supplierDoc.data() as Map<String, dynamic>;
 
-              return ListTile(
-                title: Text(data['name'] ?? 'Tanpa Nama Supplier'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () {
-                        _showEditDialog(context, productDoc.id, data['name']);
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text('Hapus Supplier'),
-                            content: Text('Yakin ingin menghapus supplier ini?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: Text('Batal'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: Text('Hapus'),
-                              ),
-                            ],
+                    return ListTile(
+                      title: Text(data['name'] ?? 'Tanpa Nama Supplier'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () {
+                              _showEditDialog(
+                                  context, supplierDoc.id, data['name']);
+                            },
                           ),
-                        );
+                          IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Hapus Supplier'),
+                                  content: Text(
+                                      'Yakin ingin menghapus supplier ini?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: Text('Batal'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: Text('Hapus'),
+                                    ),
+                                  ],
+                                ),
+                              );
 
-                        if (confirm == true) {
-                          await FirebaseFirestore.instance
-                              .collection('suppliers')
-                              .doc(productDoc.id)
-                              .delete();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                              if (confirm == true) {
+                                await FirebaseFirestore.instance
+                                    .collection('suppliers')
+                                    .doc(supplierDoc.id)
+                                    .delete();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
-  void _showEditDialog(BuildContext context, String productId, String currentName) {
+  void _showEditDialog(
+      BuildContext context, String supplierId, String currentName) {
     final TextEditingController _editController =
         TextEditingController(text: currentName);
 
@@ -118,7 +154,7 @@ class SuppliersPage extends StatelessWidget {
               if (newName.isNotEmpty) {
                 await FirebaseFirestore.instance
                     .collection('suppliers')
-                    .doc(productId)
+                    .doc(supplierId)
                     .update({'name': newName});
               }
               Navigator.pop(context);

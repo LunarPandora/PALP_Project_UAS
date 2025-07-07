@@ -1,9 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uts_flutter/pages/add/add_product.dart';
 
-class ProductsPage extends StatelessWidget {
-  final DocumentReference storeRef = FirebaseFirestore.instance.doc('stores/2');
+class ProductsPage extends StatefulWidget {
+  const ProductsPage({super.key});
+
+  @override
+  State<ProductsPage> createState() => _ProductsPageState();
+}
+
+class _ProductsPageState extends State<ProductsPage> {
+  DocumentReference? storeRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStoreRef();
+  }
+
+  Future<void> _loadStoreRef() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storeValue = prefs.getString('store_ref');
+
+    if (storeValue != null) {
+      // Periksa apakah sudah format lengkap, kalau belum, tambahkan prefix
+      final fullPath = storeValue.startsWith('stores/')
+          ? storeValue
+          : 'stores/$storeValue';
+
+      setState(() {
+        storeRef = FirebaseFirestore.instance.doc(fullPath);
+      });
+    } else {
+      print("store_ref tidak ditemukan di SharedPreferences.");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,99 +55,101 @@ class ProductsPage extends StatelessWidget {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('products')
-            .where('store_ref', isEqualTo: storeRef)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+      body: storeRef == null
+          ? Center(child: CircularProgressIndicator())
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('products')
+                  .where('store_ref', isEqualTo: storeRef)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('Tidak ada produk'));
-          }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('Tidak ada produk'));
+                }
 
-          final products = snapshot.data!.docs;
+                final products = snapshot.data!.docs;
 
-          return ListView.builder(
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final productDoc = products[index];
-              final data = productDoc.data() as Map<String, dynamic>;
-              final stock = data['stock'] ?? 0;
+                return ListView.builder(
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final productDoc = products[index];
+                    final data = productDoc.data() as Map<String, dynamic>;
+                    final stock = data['stock'] ?? 0;
 
-              return FutureBuilder<Map<String, int>>(
-                future: _fetchBatchInfo(productDoc.reference),
-                builder: (context, batchSnapshot) {
-                  if (!batchSnapshot.hasData) {
-                    return ListTile(
-                      title: Text(data['name'] ?? 'Loading...'),
-                      subtitle: Text('Stok: $stock\nMemuat batch...'),
-                    );
-                  }
+                    return FutureBuilder<Map<String, int>>(
+                      future: _fetchBatchInfo(productDoc.reference),
+                      builder: (context, batchSnapshot) {
+                        if (!batchSnapshot.hasData) {
+                          return ListTile(
+                            title: Text(data['name'] ?? 'Loading...'),
+                            subtitle: Text('Stok: $stock\nMemuat batch...'),
+                          );
+                        }
 
-                  final batchInfo = batchSnapshot.data!;
-                  final batchDetails = batchInfo.entries
-                      .map((e) => 'Batch ${e.key}: ${e.value}')
-                      .join('\n');
+                        final batchInfo = batchSnapshot.data!;
+                        final batchDetails = batchInfo.entries
+                            .map((e) => 'Batch ${e.key}: ${e.value}')
+                            .join('\n');
 
-                  return ListTile(
-                    title: Text(data['name'] ?? 'Tanpa Nama Produk'),
-                    subtitle: Text('Stok Total: $stock\n$batchDetails'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () {
-                            _showEditDialog(
-                              context,
-                              productDoc.id,
-                              data['name'],
-                              stock.toString(),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text('Hapus Produk'),
-                                content: Text('Yakin ingin menghapus produk ini?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: Text('Batal'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: Text('Hapus'),
-                                  ),
-                                ],
+                        return ListTile(
+                          title: Text(data['name'] ?? 'Tanpa Nama Produk'),
+                          subtitle: Text('Stok Total: $stock\n$batchDetails'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () {
+                                  _showEditDialog(
+                                    context,
+                                    productDoc.id,
+                                    data['name'],
+                                    stock.toString(),
+                                  );
+                                },
                               ),
-                            );
+                              IconButton(
+                                icon: Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('Hapus Produk'),
+                                      content: Text('Yakin ingin menghapus produk ini?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: Text('Batal'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: Text('Hapus'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
 
-                            if (confirm == true) {
-                              await FirebaseFirestore.instance
-                                  .collection('products')
-                                  .doc(productDoc.id)
-                                  .delete();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+                                  if (confirm == true) {
+                                    await FirebaseFirestore.instance
+                                        .collection('products')
+                                        .doc(productDoc.id)
+                                        .delete();
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
