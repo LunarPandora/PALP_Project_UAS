@@ -117,6 +117,7 @@ class _LoginScreenState extends State<LoginScreen>{
 
       await prefs.setString('code', result['code']);
       await prefs.setString('name', result['name']);
+      await prefs.setString('store_ref', stores.docs.first.id);
 
       Navigator.push(context, MaterialPageRoute(builder: (_) => MainApp()));
     }
