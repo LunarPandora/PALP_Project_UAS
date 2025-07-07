@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uts_flutter/add_warehouse.dart';
+import 'package:uts_flutter/pages/add/add_supplier.dart';
 
-class WarehousesPage extends StatelessWidget {
+class SuppliersPage extends StatelessWidget {
   final DocumentReference storeRef = FirebaseFirestore.instance.doc('stores/2');
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Warehouse Toko'),
+        title: Text('Supplier Toko'),
         actions: [
           IconButton(
             icon: Icon(Icons.add),
-            tooltip: "Tambah Warehouse",
+            tooltip: "Tambah Supplier",
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => AddWarehousePage()),
+                MaterialPageRoute(builder: (context) => AddSupplierPage()),
               );
             },
           ),
@@ -25,7 +25,7 @@ class WarehousesPage extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('warehouses')
+            .collection('suppliers')
             .where('store_ref', isEqualTo: storeRef)
             .snapshots(),
         builder: (context, snapshot) {
@@ -34,19 +34,19 @@ class WarehousesPage extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('Tidak ada warehouse untuk stores/2'));
+            return Center(child: Text('Tidak ada supplier untuk stores/2'));
           }
 
-          final warehouses = snapshot.data!.docs;
+          final products = snapshot.data!.docs;
 
           return ListView.builder(
-            itemCount: warehouses.length,
+            itemCount: products.length,
             itemBuilder: (context, index) {
-              final productDoc = warehouses[index];
+              final productDoc = products[index];
               final data = productDoc.data() as Map<String, dynamic>;
 
               return ListTile(
-                title: Text(data['name'] ?? 'Tanpa Nama Warehouse'),
+                title: Text(data['name'] ?? 'Tanpa Nama Supplier'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -62,8 +62,8 @@ class WarehousesPage extends StatelessWidget {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: Text('Hapus Warehouse'),
-                            content: Text('Yakin ingin menghapus warehouse ini?'),
+                            title: Text('Hapus Supplier'),
+                            content: Text('Yakin ingin menghapus supplier ini?'),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
@@ -79,7 +79,7 @@ class WarehousesPage extends StatelessWidget {
 
                         if (confirm == true) {
                           await FirebaseFirestore.instance
-                              .collection('warehouses')
+                              .collection('suppliers')
                               .doc(productDoc.id)
                               .delete();
                         }
@@ -102,10 +102,10 @@ class WarehousesPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Edit Warehouse'),
+        title: Text('Edit Supplier'),
         content: TextField(
           controller: _editController,
-          decoration: InputDecoration(labelText: 'Nama Warehouse'),
+          decoration: InputDecoration(labelText: 'Nama Supplier'),
         ),
         actions: [
           TextButton(
@@ -117,7 +117,7 @@ class WarehousesPage extends StatelessWidget {
               final newName = _editController.text.trim();
               if (newName.isNotEmpty) {
                 await FirebaseFirestore.instance
-                    .collection('warehouses')
+                    .collection('suppliers')
                     .doc(productId)
                     .update({'name': newName});
               }
