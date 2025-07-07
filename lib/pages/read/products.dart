@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uts_flutter/add_product.dart';
+import 'package:uts_flutter/pages/add/add_product.dart';
 
 class ProductsPage extends StatelessWidget {
   final DocumentReference storeRef = FirebaseFirestore.instance.doc('stores/2');

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'shipment_details_page.dart';
-import 'add_shipment_page.dart';
-import 'edit_shipment_page.dart';
+import '../add/add_shipment_page.dart';
+import '../edit/edit_shipment_page.dart';
 
 class ShipmentHomePage extends StatefulWidget {
   @override
